@@ -1,0 +1,358 @@
+datasource db {
+  provider  = "postgresql"
+  relationMode = "prisma"
+  url       = env("DATABASE_URL") // Application uses the pooled URL
+  // directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "generated/prisma/client"
+}
+
+// Auth models
+
+model User {
+  id                     String                         @id @default(uuid()) @map("_id")
+  name                   String
+  email                  String
+  emailVerified          Boolean
+  image                  String                         @default("https://placehold.co/400x400.png")
+  createdAt              DateTime
+  updatedAt              DateTime
+  sessions               Session[]
+  accounts               Account[]
+  clan                   Clan[]
+  banned                 Boolean                        @default(false)
+  staff                  Staff?
+  member                 Member[]
+  ClanStaff              ClanStaff[]
+  Ban                    UserBan[]
+  ClanBan                ClanBan[]
+  submittedAppeals       BanAppeal[]                    @relation("SubmittedByAppeals")
+  reviewedAppeals        BanAppeal[]                    @relation("AppealUser")
+  APIKey                 apiKey[]
+  reportedByYser         Report[]                       @relation("ReportedByUser")
+  reportedUser           Report[]                       @relation("ReportedUser")
+  reviewdByUser          ClanJoinRequest[]              @relation("JoinRequestReviewed")
+  requestingUser         ClanJoinRequest[]              @relation("JoinRequestingUser")
+  ClanJoinRequest        ClanJoinRequest[]              @relation("JoinRequestUnblocked")
+  applicationSubmittedBy ClanVerificationApplications[] @relation("ApplicationSubmittedBy")
+  applicationReviewedBy  ClanVerificationApplications[] @relation("ApplicationReviewedByIser")
+  WebsiteAnnouncement    WebsiteAnnouncement[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(uuid()) @map("_id")
+  expiresAt DateTime
+  token     String
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(uuid()) @map("_id")
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id @default(uuid()) @map("_id")
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+// Clan Models
+
+enum ClanSpecialties {
+  Speed
+  Acc
+  Challenge
+  Ranked
+  Everything
+}
+
+enum ApplicationStatus {
+  None
+  Applied
+  In_Review
+  Denied
+  Approved
+}
+
+enum Visibility {
+  Visible
+  Hidden
+}
+
+model Clan {
+  id                           String                         @id @default(uuid()) @map("_id")
+  clan_name                    String
+  clan_tag                     String
+  clan_specialties             ClanSpecialties[]
+  logo_url                     String                         @default("https://placehold.co/400x400.png")
+  banner_url                   String                         @default("https://placehold.co/1920x1080.png")
+  banner_file_key              String?
+  discord_invite_link          String?
+  description                  Json?
+  clan_short_description       String                         @default("Short Description")
+  clan_owner                   String
+  user                         User                           @relation(fields: [clan_owner], references: [id], onDelete: Cascade)
+  banned                       Boolean                        @default(false)
+  application_status           ApplicationStatus              @default(None)
+  visibility                   Visibility                     @default(Hidden)
+  updatedAt                    DateTime                       @updatedAt
+  createdAt                    DateTime                       @default(now())
+  Member                       Member[]
+  Reports                      Report[]
+  ClanStaff                    ClanStaff[]
+  Ban                          UserBan[]
+  ClanBan                      ClanBan[]
+  BanAppeal                    BanAppeal[]
+  ClanJoinRequest              ClanJoinRequest[]
+  ClanVerificationApplications ClanVerificationApplications[]
+
+  @@map("clan")
+}
+
+enum ReportType {
+  User
+  Clan
+}
+
+model Report {
+  id             String     @id @default(uuid()) @map("_id")
+  type           ReportType
+  userId         String?
+  clanId         String?
+  reason         String
+  user           User?      @relation("ReportedUser", fields: [userId], references: [id], onDelete: Cascade)
+  clan           Clan?      @relation(fields: [clanId], references: [id], onDelete: Cascade)
+  resolved       Boolean    @default(false)
+  reportedBy     String?
+  reportedByUser User?      @relation("ReportedByUser", fields: [reportedBy], references: [id], onDelete: SetNull)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@map("report")
+}
+
+enum Role {
+  Currator
+  Moderator
+  Administrator
+  Developer
+}
+
+model Staff {
+  id     String @id @default(uuid()) @map("_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+  role   Role   @default(Administrator)
+
+  @@map("staff")
+}
+
+model Member {
+  id        String     @id @default(uuid()) @map("_id")
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clanId    String
+  clan      Clan       @relation(fields: [clanId], references: [id], onDelete: Cascade)
+  ClanStaff ClanStaff?
+  banned    Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  UserBan   UserBan[]
+
+  @@map("member")
+}
+
+enum ClanStaffRole {
+  Moderator
+  Administrator
+  Creator
+}
+
+model ClanStaff {
+  id        String        @id @default(uuid()) @map("_id")
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  member    Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId  String        @unique
+  clan      Clan          @relation(fields: [clanId], references: [id], onDelete: Cascade)
+  clanId    String
+  role      ClanStaffRole @default(Moderator)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@map("clanStaff")
+}
+
+enum BanType {
+  From_Clan
+  From_Platform
+}
+
+model UserBan {
+  id            String   @id @default(uuid()) @map("_id")
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId        String?
+  clan          Clan?    @relation(fields: [clanId], references: [id], onDelete: SetNull)
+  clanId        String?
+  discordId     String
+  type          BanType  @default(From_Platform)
+  justification String
+  member        Member?  @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  memberId      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([discordId, type])
+  @@map("userBan")
+}
+
+enum ReviewStatus {
+  Submitted
+  In_Review
+  Approved
+  Denied
+}
+
+model ClanBan {
+  id            String       @id @default(uuid()) @map("_id")
+  clanId        String
+  clan          Clan         @relation(fields: [clanId], references: [id], onDelete: Cascade)
+  justification String
+  bannedBy      String?
+  user          User?        @relation(fields: [bannedBy], references: [id], onDelete: SetNull)
+  permanent     Boolean      @default(false)
+  allowAppealAt DateTime?
+  status        ReviewStatus @default(Submitted)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  BanAppeal     BanAppeal[]
+
+  @@map("clanBan")
+}
+
+enum AppealStatus {
+  Approved
+  Denied
+}
+
+model BanAppeal {
+  id                 String       @id @default(uuid()) @map("_id")
+  banId              String
+  ban                ClanBan      @relation(fields: [banId], references: [id], onDelete: Cascade)
+  clanId             String
+  clan               Clan         @relation(fields: [clanId], references: [id], onDelete: Cascade)
+  status             ReviewStatus @default(Submitted)
+  allowAnotherAppeal Boolean      @default(false)
+  appealReviewedBy   String?
+  appealSubmittedBy  String?
+  submittedBy        User?        @relation("SubmittedByAppeals", fields: [appealSubmittedBy], references: [id], onDelete: SetNull)
+  user               User?        @relation("AppealUser", fields: [appealReviewedBy], references: [id], onDelete: SetNull)
+  comments           String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  justification      String
+
+  @@map("banAppeal")
+}
+
+model apiKey {
+  id           String    @id @default(uuid()) @map("_id")
+  encryptedKey String    @unique
+  hashedKey    String    @unique
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  expireAt     DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@map("apiKey")
+}
+
+enum RequestStatus {
+  Submitted
+  Approved
+  Denied
+}
+
+model ClanJoinRequest {
+  id                      String        @id @default(uuid()) @map("_id")
+  clanId                  String
+  clan                    Clan          @relation(fields: [clanId], references: [id], onDelete: Cascade)
+  userId                  String
+  user                    User          @relation("JoinRequestingUser", fields: [userId], references: [id], onDelete: Cascade)
+  allowAnotherApplication Boolean       @default(true)
+  status                  RequestStatus @default(Submitted)
+  reviewedById            String?
+  reviewedByUser          User?         @relation("JoinRequestReviewed", fields: [reviewedById], references: [id], onDelete: SetNull)
+  unblockedByUserId       String?
+  unblockedByUser         User?         @relation("JoinRequestUnblocked", fields: [unblockedByUserId], references: [id], onDelete: SetNull)
+  updatedAt               DateTime      @updatedAt
+  createdAt               DateTime      @default(now())
+
+  @@map("clanJoinRequest")
+}
+
+model ClanVerificationApplications {
+  id             String        @id @default(uuid()) @map("_id")
+  clanId         String
+  clan           Clan          @relation(fields: [clanId], references: [id], onDelete: Cascade)
+  submittedById  String
+  submittedBy    User          @relation("ApplicationSubmittedBy", fields: [submittedById], references: [id], onDelete: Cascade)
+  status         RequestStatus @default(Submitted)
+  reviewedById   String?
+  reviewedByUser User?         @relation("ApplicationReviewedByIser", fields: [reviewedById], references: [id], onDelete: SetNull)
+  comments       String?
+  updatedAt      DateTime      @updatedAt
+  createdAt      DateTime      @default(now())
+
+  @@map("clanVerificationApplication")
+}
+
+model WebsiteAnnouncement {
+  id           String    @id @default(uuid()) @map("_id")
+  title        String
+  announcement String
+  postedById   String?
+  postedByUser User?     @relation(fields: [postedById], references: [id], onDelete: SetNull)
+  showAt       DateTime?
+  hideAt       DateTime?
+  visible      Boolean   @default(false)
+  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime  @default(now())
+
+  @@map("websiteAnnouncement")
+}
