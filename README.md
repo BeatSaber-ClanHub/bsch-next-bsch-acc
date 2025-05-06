@@ -61,9 +61,9 @@ To run this project locally, follow these steps:
     - Create a 32-character encryption key for API key generation. This key is used to protect the generated API keys.
     - Paste the encryption key into the `ENCRYPTION_KEY` environment variable.
 
-7.  **Supabase Setup:**
+7.  **Prisma Setup:**
 
-    - Set up a Supabase project. Follow the Supabase documentation for instructions.
+    - Set up a Prisma project. Follow the Supabase documentation for instructions.
     - Connect your Supabase project to your local development environment using the Prisma ORM. Update your `DATABASE_URL` in your `.env` file.
 
 8.  **Install Dependencies:**
